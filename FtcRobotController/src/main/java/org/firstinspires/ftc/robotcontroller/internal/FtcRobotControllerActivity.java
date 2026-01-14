@@ -191,6 +191,8 @@ public class FtcRobotControllerActivity extends Activity
 
   }
 
+
+
   protected boolean serviceShouldUnbind = false;
   protected ServiceConnection connection = new ServiceConnection() {
     @Override
