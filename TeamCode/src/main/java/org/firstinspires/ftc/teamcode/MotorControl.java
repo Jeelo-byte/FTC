@@ -12,6 +12,8 @@ import com.qualcomm.robotcore.util.ElapsedTime;
 public class MotorControl extends LinearOpMode {
 
     private DcMotorEx motor;
+
+
     private Servo spindexerServo;
     private ColorSensor colorSensor;
 
