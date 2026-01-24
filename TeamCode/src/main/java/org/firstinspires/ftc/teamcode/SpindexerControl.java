@@ -2,316 +2,221 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
+import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.Servo;
-import com.qualcomm.robotcore.hardware.DistanceSensor;
 import com.qualcomm.robotcore.hardware.ColorSensor;
-import org.firstinspires.ftc.robotcore.external.navigation.DistanceUnit;
 import org.firstinspires.ftc.robotcore.external.hardware.camera.WebcamName;
 import org.firstinspires.ftc.vision.VisionPortal;
-import org.firstinspires.ftc.vision.apriltag.AprilTagDetection;
 import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 
-import java.util.List;
-
-@TeleOp(name="Spindexer Control")
+@TeleOp(name="Spindexer Motor Control")
 public class SpindexerControl extends LinearOpMode {
-
-    private Servo spindexerServo;
+    
+    private DcMotor spindexerMotor;
     private Servo liftServo;
-    private DistanceSensor intakeSensor;
     private ColorSensor rampSensor;
     private AprilTagProcessor aprilTag;
     private VisionPortal visionPortal;
-
-    private static final int SPINDEXER_SLOTS = 3;
-    private static final double SLOT_ANGLE = 360.0 / SPINDEXER_SLOTS;
-    private static final double GEAR_RATIO =0.2;
+    
+    private static final int BASE_TIME_PER_SLOT = 400; 
+    private static final double SPIN_POWER = 0.3;
+    
     private static final double LIFT_UP = 0.7;
     private static final double LIFT_DOWN = 0.1;
-    private static final double DETECTION_DISTANCE = 5.0;
+    private static final int LIFT_DELAY = 300;
+    
+    private static final int COLOR_THRESHOLD = 40;     
+    private static final int PRESENCE_THRESHOLD = 100; 
 
-    private static final boolean USE_ULTRA_SPEED = false;
-
-    private static final int ROTATION_DELAY = USE_ULTRA_SPEED ? 100 : 400;
-    private static final int LIFT_DELAY = USE_ULTRA_SPEED ? 150 : 500;
-    private static final int EJECT_DELAY = 300;
-    private static final int LOWER_DELAY = USE_ULTRA_SPEED ? 100 : 400;
-
-    private static final int COLOR_THRESHOLD = 50;
-
-    private BallSlot[] ballSlots = new BallSlot[SPINDEXER_SLOTS];
-    private String[] motif = new String[3];
-    private int currentSlot = 0;
+    private BallSlot[] ballSlots = new BallSlot[3];
+    private String[] motif = {"P", "P", "G"}; 
+    private int currentSlot = 0; 
     private int ballsLoaded = 0;
     private boolean isIntaking = false;
     private boolean isShooting = false;
-    private boolean motifDetected = false;
-
+    
     class BallSlot {
-        String color;
-        boolean isEmpty;
-        int position;
-
-        BallSlot(int pos) {
-            this.isEmpty = true;
-            this.position = pos;
-            this.color = "";
-        }
+        String color = "";
+        boolean isEmpty = true;
     }
-
+    
     @Override
     public void runOpMode() {
         initHardware();
-
-        for (int i = 0; i < SPINDEXER_SLOTS; i++) {
-            ballSlots[i] = new BallSlot(i);
-        }
-
-        telemetry.addData("Status", "Initialized");
-        telemetry.addData("Press X", "to detect motif");
+        
+        for (int i = 0; i < 3; i++) ballSlots[i] = new BallSlot();
+        
+        telemetry.addData("Status", "Ready");
         telemetry.update();
-
+        
         waitForStart();
-
+        
         while (opModeIsActive()) {
-            if (gamepad1.x && !motifDetected) {
-                detectMotif();
-            }
-
+            
             if (gamepad1.a && !isIntaking && !isShooting) {
-                intakeBalls();
+                if (ballsLoaded < 3) {
+                    intakeSequence();
+                }
+            }
+            
+            if (gamepad1.b && !isShooting && !isIntaking) {
+                shootSequence();
             }
 
-            if (gamepad1.b && !isShooting && !isIntaking && motifDetected) {
-                shootAllBalls();
+            if (gamepad1.dpad_left) {
+                spindexerMotor.setPower(SPIN_POWER);
+            } else if (gamepad1.dpad_right) {
+                spindexerMotor.setPower(-SPIN_POWER);
+            } else {
+                if(!isIntaking && !isShooting) spindexerMotor.setPower(0);
             }
-
-            if (gamepad1.dpad_left && !isShooting && !isIntaking) {
-                rotateToSlot((currentSlot - 1 + SPINDEXER_SLOTS) % SPINDEXER_SLOTS);
-                sleep(300);
-            }
-            if (gamepad1.dpad_right && !isShooting && !isIntaking) {
-                rotateToSlot((currentSlot + 1) % SPINDEXER_SLOTS);
-                sleep(300);
-            }
-
+            
             updateTelemetry();
         }
-
         visionPortal.close();
+    }
+    
+    private void intakeSequence() {
+        isIntaking = true;
+        
+        while (ballsLoaded < 3 && opModeIsActive()) {
+            
+            int targetSlot = -1;
+            int slotsToMove = 0;
+            
+            for (int i = 0; i < 3; i++) {
+                int checkIndex = (currentSlot + i) % 3;
+                if (ballSlots[checkIndex].isEmpty) {
+                    targetSlot = checkIndex;
+                    slotsToMove = i;
+                    break;
+                }
+            }
+            if (targetSlot == -1) break;
+            
+            if (slotsToMove > 0) {
+                spindexerMotor.setPower(SPIN_POWER);
+                long spinTime = (long)(slotsToMove * BASE_TIME_PER_SLOT);
+                sleep(spinTime);
+                spindexerMotor.setPower(0);
+                
+                currentSlot = targetSlot;
+                sleep(200);
+            }
+            
+            if (!waitUntilClear()) { isIntaking = false; return; }
+            
+            if (!waitForBall(targetSlot)) { isIntaking = false; return; }
+        }
+        
+        isIntaking = false;
+    }
+    
+    private boolean waitUntilClear() {
+        while (opModeIsActive() && rampSensor.alpha() > PRESENCE_THRESHOLD) {
+            if (gamepad1.b) return false;
+        }
+        return true;
+    }
+    
+    private boolean waitForBall(int slotIndex) {
+        while (opModeIsActive()) {
+            String color = checkColorSensor();
+            
+            if (!color.equals("UNKNOWN") && !color.equals("NONE")) {
+                ballSlots[slotIndex].color = color;
+                ballSlots[slotIndex].isEmpty = false;
+                ballsLoaded++;
+                
+                spindexerMotor.setPower(SPIN_POWER);
+                sleep(150); 
+                spindexerMotor.setPower(0);
+                
+                return true;
+            }
+            
+            if (gamepad1.b) return false;
+        }
+        return false;
+    }
+
+    private void shootSequence() {
+        isShooting = true;
+        
+        for (int i = 0; i < 3 && opModeIsActive(); i++) {
+            String targetColor = motif[i];
+            
+            int slotIndex = -1;
+            int dist = 0;
+            for(int k=0; k<3; k++) {
+                int idx = (currentSlot + k) % 3;
+                if(ballSlots[idx].color.equals(targetColor) && !ballSlots[idx].isEmpty) {
+                    slotIndex = idx;
+                    dist = k;
+                    break;
+                }
+            }
+            
+            if (slotIndex != -1) {
+                if (dist > 0) {
+                    spindexerMotor.setPower(SPIN_POWER);
+                    long spinTime = (long)(dist * BASE_TIME_PER_SLOT);
+                    sleep(spinTime);
+                    spindexerMotor.setPower(0);
+                    currentSlot = slotIndex;
+                }
+                
+                liftServo.setPosition(LIFT_UP);
+                sleep(LIFT_DELAY);
+                liftServo.setPosition(LIFT_DOWN);
+                sleep(LIFT_DELAY);
+                
+                ballSlots[slotIndex].isEmpty = true;
+                ballSlots[slotIndex].color = "";
+            }
+        }
+        
+        isShooting = false;
+        ballsLoaded = 0;
+    }
+
+    private String checkColorSensor() {
+        int r = rampSensor.red();
+        int g = rampSensor.green();
+        int b = rampSensor.blue();
+        
+        if (r+g+b < PRESENCE_THRESHOLD) return "NONE";
+        if (g > r+COLOR_THRESHOLD && g > b+COLOR_THRESHOLD) return "G";
+        if ((r > g && b > g) || (r+b > g*1.5)) return "P";
+        return "UNKNOWN";
+    }
+    
+    private void updateTelemetry() {
+        telemetry.addData("State", isShooting ? "SHOOTING" : (isIntaking ? "INTAKING" : "IDLE"));
+        telemetry.addData("Balls Loaded", ballsLoaded + "/3");
+        telemetry.update();
     }
 
     private void initHardware() {
-        spindexerServo = hardwareMap.get(Servo.class, "spindexer_servo");
+        spindexerMotor = hardwareMap.get(DcMotor.class, "spindexer_motor");
         liftServo = hardwareMap.get(Servo.class, "lift_servo");
-
-        intakeSensor = hardwareMap.get(DistanceSensor.class, "intake_sensor");
         rampSensor = hardwareMap.get(ColorSensor.class, "ramp_sensor");
-
+        
+        spindexerMotor.setDirection(DcMotorSimple.Direction.FORWARD);
+        spindexerMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
+        
         aprilTag = new AprilTagProcessor.Builder().build();
-
         visionPortal = new VisionPortal.Builder()
-                .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
-                .addProcessor(aprilTag)
-                .build();
-
+            .setCamera(hardwareMap.get(WebcamName.class, "Webcam 1"))
+            .addProcessor(aprilTag)
+            .build();
+        
         liftServo.setPosition(LIFT_DOWN);
-        rotateToSlot(0);
-    }
-
-    private void detectMotif() {
-        telemetry.addData("Status", "Detecting motif from AprilTag...");
-        telemetry.update();
-
-        List<AprilTagDetection> detections = aprilTag.getDetections();
-
-        if (detections.size() > 0) {
-            AprilTagDetection detection = detections.get(0);
-            int tagId = detection.id;
-
-            if (tagId == 21) {
-                motif[0] = "G"; motif[1] = "P"; motif[2] = "P";
-                telemetry.addData("Motif", "GPP (Tag 21)");
-            } else if (tagId == 22) {
-                motif[0] = "P"; motif[1] = "G"; motif[2] = "P";
-                telemetry.addData("Motif", "PGP (Tag 22)");
-            } else if (tagId == 23) {
-                motif[0] = "P"; motif[1] = "P"; motif[2] = "G";
-                telemetry.addData("Motif", "PPG (Tag 23)");
-            } else {
-                telemetry.addData("Error", "Unknown AprilTag ID: " + tagId);
-                telemetry.update();
-                return;
-            }
-
-            motifDetected = true;
-            telemetry.addData("Status", "Motif detected successfully!");
-            telemetry.update();
-            sleep(2000);
-        } else {
-            telemetry.addData("Error", "No AprilTag detected");
-            telemetry.update();
-        }
-    }
-
-    private void intakeBalls() {
-        isIntaking = true;
-        ballsLoaded = 0;
-        int spins = 0;
-
-        telemetry.addData("Status", "Intaking balls...");
-        telemetry.update();
-
-        while (spins < 2 && opModeIsActive()) {
-            for (int slot = 0; slot < SPINDEXER_SLOTS && opModeIsActive(); slot++) {
-                if (ballSlots[slot].isEmpty) {
-                    rotateToSlot(slot);
-                    sleep(500);
-
-                    long startTime = System.currentTimeMillis();
-                    while (System.currentTimeMillis() - startTime < 2000 && opModeIsActive()) {
-                        double distance = intakeSensor.getDistance(DistanceUnit.CM);
-
-                        if (distance < DETECTION_DISTANCE) {
-                            sleep(300);
-                            scanBallColor(slot);
-                            ballsLoaded++;
-                            break;
-                        }
-                        sleep(50);
-                    }
-                }
-            }
-            spins++;
-        }
-
-        isIntaking = false;
-        telemetry.addData("Status", "Intake complete");
-        telemetry.addData("Balls loaded", ballsLoaded);
-        telemetry.update();
-    }
-
-    private void scanBallColor(int slot) {
-        BallSlot ball = ballSlots[slot];
-
-        int red = rampSensor.red();
-        int green = rampSensor.green();
-        int blue = rampSensor.blue();
-
-        if (green > red + COLOR_THRESHOLD && green > blue + COLOR_THRESHOLD) {
-            ball.color = "G";
-        } else if ((red > green && blue > green) || (red + blue > green * 2)) {
-            ball.color = "P";
-        } else {
-            ball.color = "UNKNOWN";
-        }
-
-        ball.isEmpty = false;
-
-        telemetry.addData("Scanned Slot", slot);
-        telemetry.addData("Color", ball.color + " (R=%d G=%d B=%d)", red, green, blue);
-        telemetry.update();
-    }
-
-    private void shootAllBalls() {
-        if (!motifDetected) {
-            telemetry.addData("Error", "Detect motif first (press X)");
-            telemetry.update();
-            return;
-        }
-
-        isShooting = true;
-        telemetry.addData("Status", "AUTO SHOOTING IN MOTIF ORDER!");
-        telemetry.update();
-
-        for (int motifIndex = 0; motifIndex < 3 && opModeIsActive(); motifIndex++) {
-            String targetColor = motif[motifIndex];
-
-            telemetry.addData("Shooting", "Position %d: %s", motifIndex + 1, targetColor);
-            telemetry.update();
-
-            int ballSlot = findBallWithColor(targetColor);
-
-            if (ballSlot != -1) {
-                shootBallFast(ballSlot);
-                sleep(200);
-            } else {
-                telemetry.addData("Warning", "No %s ball found, skipping", targetColor);
-                telemetry.update();
-                sleep(500);
-            }
-        }
-
-        isShooting = false;
-        telemetry.addData("Status", "SHOOTING COMPLETE!");
-        telemetry.update();
-        sleep(1000);
-    }
-
-    private int findBallWithColor(String color) {
-        for (int i = 0; i < SPINDEXER_SLOTS; i++) {
-            if (!ballSlots[i].isEmpty && ballSlots[i].color.equals(color)) {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    private void shootBallFast(int slot) {
-        int shootSlot = (slot + SPINDEXER_SLOTS / 2) % SPINDEXER_SLOTS;
-
-        rotateToSlot(shootSlot);
-        sleep(ROTATION_DELAY);
-
-        liftServo.setPosition(LIFT_UP);
-        sleep(LIFT_DELAY);
-
-        sleep(EJECT_DELAY);
-
-        liftServo.setPosition(LIFT_DOWN);
-        sleep(LOWER_DELAY);
-
-        ballSlots[slot].isEmpty = true;
-        ballSlots[slot].color = "";
-        ballsLoaded--;
-    }
-
-    private void rotateToSlot(int slot) {
-        currentSlot = slot;
-        double angle = slot * SLOT_ANGLE * GEAR_RATIO;
-        double servoPosition = angle / 360.0;
-        spindexerServo.setPosition(servoPosition);
-    }
-
-    private void updateTelemetry() {
-        telemetry.addData("Status", isShooting ? "SHOOTING" : (isIntaking ? "INTAKING" : "Ready"));
-        telemetry.addData("Current Slot", currentSlot);
-        telemetry.addData("Balls Loaded", ballsLoaded);
-
-        if (motifDetected) {
-            telemetry.addData("Motif", "%s-%s-%s", motif[0], motif[1], motif[2]);
-        } else {
-            telemetry.addData("Motif", "Not detected (press X)");
-        }
-
-        telemetry.addData("Distance", "%.2f cm", intakeSensor.getDistance(DistanceUnit.CM));
-        telemetry.addData("Ramp RGB", "R=%d G=%d B=%d",
-                rampSensor.red(), rampSensor.green(), rampSensor.blue());
-
-        telemetry.addLine("\nControls:");
-        telemetry.addData("X", "Detect Motif");
-        telemetry.addData("A", "Intake");
-        telemetry.addData("B", "Auto Shoot");
-        telemetry.addData("DPad", "Manual Rotate");
-
-        telemetry.addLine("\nLoaded Balls:");
-        for (int i = 0; i < SPINDEXER_SLOTS; i++) {
-            if (!ballSlots[i].isEmpty) {
-                telemetry.addData("Slot " + i, ballSlots[i].color);
-            }
-        }
-
-        telemetry.update();
+        rampSensor.enableLed(true);
+        
+        spindexerMotor.setPower(0);
     }
 }
+
 
