@@ -20,7 +20,7 @@ public abstract class AutoBase extends LinearOpMode {
     protected DcMotorEx intakeMotor;
     protected DcMotorEx shooterMotor;
     protected CRServo spindexerServo;
-    protected Servo liftServo;
+    protected CRServo liftServo;
     protected ColorSensor colorSensor;
 
     // Constants (Copied from MotorControl)
@@ -36,8 +36,7 @@ public abstract class AutoBase extends LinearOpMode {
     protected static final double SPIN_POWER = 0.3;
     protected static final double GEAR_RATIO = 15.0 / 20.0;
     protected static final long ROTATION_TIME_120 = (long) (500 * GEAR_RATIO);
-    protected static final double LIFT_UP = 0.1;
-    protected static final double LIFT_DOWN = 0.7;
+    protected static final long LIFT_TIME = 300;
 
     protected void initHardware() {
         // Drive motors
@@ -47,10 +46,11 @@ public abstract class AutoBase extends LinearOpMode {
         rightBack = hardwareMap.get(DcMotorEx.class, "back_right");
 
         // Reverse left side based on MotorControl configuration
-//        leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
+        // leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
         leftBack.setDirection(DcMotorSimple.Direction.REVERSE);
-//        rightFront.setDirection(DcMotorSimple.Direction.REVERSE); // MotorControl has this reversed too? Let's match
-                                                                  // MotorControl exactly.
+        // rightFront.setDirection(DcMotorSimple.Direction.REVERSE); // MotorControl has
+        // this reversed too? Let's match
+        // MotorControl exactly.
         // MotorControl:
         // leftFront.setDirection(REVERSE);
         // leftBack.setDirection(REVERSE);
@@ -71,8 +71,8 @@ public abstract class AutoBase extends LinearOpMode {
 
         // Servos
         spindexerServo = hardwareMap.get(CRServo.class, "spindexer_servo");
-        liftServo = hardwareMap.get(Servo.class, "lift_servo");
-        liftServo.setPosition(LIFT_DOWN);
+        liftServo = hardwareMap.get(CRServo.class, "liftServo");
+        liftServo.setPower(0);
 
         // Sensors
         colorSensor = hardwareMap.get(ColorSensor.class, "color_sensor");
@@ -86,7 +86,7 @@ public abstract class AutoBase extends LinearOpMode {
 
         leftFront.setTargetPosition(0);
         rightFront.setTargetPosition(0);
-        leftBack.setTargetPosition(0); //Hello
+        leftBack.setTargetPosition(0); // Hello
         rightBack.setTargetPosition(0);
 
         leftFront.setMode(DcMotor.RunMode.RUN_TO_POSITION);
@@ -177,10 +177,15 @@ public abstract class AutoBase extends LinearOpMode {
         // Shoot 3 balls (assuming 3 slots)
         for (int i = 0; i < 3; i++) {
             // Lift and Shoot
-            liftServo.setPosition(LIFT_UP);
-            sleep(250);
-            liftServo.setPosition(LIFT_DOWN);
-            sleep(250);
+            liftServo.setPower(-1.0); // Up
+            sleep(LIFT_TIME);
+            liftServo.setPower(0);
+            sleep(100);
+
+            liftServo.setPower(1.0); // Down
+            sleep(LIFT_TIME);
+            liftServo.setPower(0);
+            sleep(100);
 
             // Rotate Spindexer for next ball (if not last shot)
             if (i < 2) {
@@ -206,10 +211,15 @@ public abstract class AutoBase extends LinearOpMode {
 
         for (int i = 0; i < shots; i++) {
             // Lift
-            liftServo.setPosition(LIFT_UP);
-            sleep(250);
-            liftServo.setPosition(LIFT_DOWN);
-            sleep(250);
+            liftServo.setPower(-1.0); // Up
+            sleep(LIFT_TIME);
+            liftServo.setPower(0);
+            sleep(100);
+
+            liftServo.setPower(1.0); // Down
+            sleep(LIFT_TIME);
+            liftServo.setPower(0);
+            sleep(100);
 
             // Rotate Spindexer if needed for next shot
             if (i < shots - 1) {
