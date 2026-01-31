@@ -22,18 +22,19 @@ public class ShooterLiftSubsystem {
     // Shooter Constants & State
     private boolean isShooterOn = false;
 
-    // PIDF Constants (Adjustable)
+    // PIDF Constants (Adjusted by User)
     private static final double DEFAULT_P = 10.0;
     private static final double DEFAULT_I = 0.0;
     private static final double DEFAULT_D = 0.0;
-    private static final double DEFAULT_F = 20.0;
+    private static final double DEFAULT_F = 20.7; // User requested 20.7
 
     private double p = DEFAULT_P;
     private double i = DEFAULT_I;
     private double d = DEFAULT_D;
     private double f = DEFAULT_F;
 
-    private double targetVelocity = 2500; // Default TPS
+    // Target Velocity (User requested 2500)
+    private double targetVelocity = 2500;
 
     public ShooterLiftSubsystem(HardwareMap hardwareMap) {
         shooterMotor = hardwareMap.get(DcMotorEx.class, "flywheel");
@@ -42,9 +43,11 @@ public class ShooterLiftSubsystem {
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         shooterMotor.setDirection(DcMotorSimple.Direction.REVERSE);
 
-        // PIDF Setup
+        // PIDF Setup (Run Using Encoder matches FlywheelTuner)
         shooterMotor.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
         shooterMotor.setMode(DcMotor.RunMode.RUN_USING_ENCODER);
+
+        // Apply initial PIDF
         updatePIDF();
 
         liftServo.setPower(0);
@@ -194,7 +197,7 @@ public class ShooterLiftSubsystem {
         // Spin Up
         setShooterPower(1.0);
 
-        // Wait for Spin Up (1000ms for safety with PIDF?)
+        // Wait for Spin Up (1000ms for safety)
         sleepWithDrive(1000, driveAction, opModeActive);
 
         int shots = 3;

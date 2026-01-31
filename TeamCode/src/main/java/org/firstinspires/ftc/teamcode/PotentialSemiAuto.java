@@ -22,9 +22,8 @@ public class PotentialSemiAuto extends LinearOpMode {
     boolean lastDpadDown = false;
 
     // Calibration Debounce
-    boolean lastRightStickBtn = false;
-    boolean lastRightBumper = false;
-    boolean lastLeftBumper = false;
+    boolean lastRightStickUp = false;
+    boolean lastRightStickDown = false;
     boolean isEditingUp = true;
 
     @Override
@@ -47,17 +46,10 @@ public class PotentialSemiAuto extends LinearOpMode {
             // --- 1. Subsystem Actions (passed Drive capability) ---
             Runnable driveAction = () -> drive.manualDrive(gamepad1);
 
-            // --- 2. Auto Intake (Circle) ---
+            // --- 2. Auto Intake Toggle (Circle) ---
             if (gamepad1.circle && !lastCircle) {
-                // If not already intaking, start sequence
-                if (!spindexer.isIntaking()) {
-                    spindexer.startIntakeSequence(telemetry, driveAction, opModeIsActive());
-                } else {
-                    // If already intaking, the loop inside startIntakeSequence checks
-                    // for isIntaking flag? Actually the loop blocks.
-                    // So we can't 'cancel' easily unless we check inside the loop.
-                    // The subsystem checks for Circle to cancel.
-                }
+                // Now uses toggle logic
+                spindexer.toggleIntake(telemetry, driveAction, opModeIsActive());
             }
             lastCircle = gamepad1.circle;
 
@@ -121,33 +113,29 @@ public class PotentialSemiAuto extends LinearOpMode {
             lastDpadLeft = gamepad1.dpad_left;
             lastDpadRight = gamepad1.dpad_right;
 
-            // --- 6. Calibration (Right Stick + Bumpers) ---
+            // --- 6. Calibration (Right Stick Y) ---
 
-            // Toggle Edit Mode - REMOVED (Only one duration to edit now)
-            /*
-             * if (gamepad1.right_stick_button && !lastRightStickBtn) {
-             * isEditingUp = !isEditingUp;
-             * }
-             * lastRightStickBtn = gamepad1.right_stick_button;
-             */
-
-            // Adjust
-            if (gamepad1.right_bumper && !lastRightBumper) {
-                shooterLift.adjustCalibration(0.5); // +0.5 ms/deg
+            // Stick Up (Negative Y) -> Increase ms/deg (Slower)
+            boolean rightStickUp = gamepad1.right_stick_y < -0.5;
+            if (rightStickUp && !lastRightStickUp) {
+                shooterLift.adjustCalibration(0.5);
             }
-            lastRightBumper = gamepad1.right_bumper;
+            lastRightStickUp = rightStickUp;
 
-            if (gamepad1.left_bumper && !lastLeftBumper) {
-                shooterLift.adjustCalibration(-0.5); // -0.5 ms/deg
+            // Stick Down (Positive Y) -> Decrease ms/deg (Faster)
+            boolean rightStickDown = gamepad1.right_stick_y > 0.5;
+            if (rightStickDown && !lastRightStickDown) {
+                shooterLift.adjustCalibration(-0.5);
             }
-            lastLeftBumper = gamepad1.left_bumper;
+            lastRightStickDown = rightStickDown;
 
             // --- Telemetry ---
             telemetry.addData("Shooter", shooterLift.isShooterOn() ? "ON" : "OFF");
             telemetry.addData("Velocity", "%.0f / %.0f", shooterLift.getVelocity(), shooterLift.getTargetVelocity());
             telemetry.addData("PIDF", "P:%.1f F:%.1f", shooterLift.getP(), shooterLift.getF());
             telemetry.addData("Lift", shooterLift.isLiftUp() ? "UP" : "DOWN");
-            telemetry.addData("Balls", spindexer.getBallsLoaded() + "/3");
+            // Spindexer Telemetry
+            spindexer.printTelemetry(telemetry);
 
             telemetry.addLine("\n--- Calibration ---");
             telemetry.addData("Calib (ms/deg)", "%.2f", shooterLift.getMsPerDegree());

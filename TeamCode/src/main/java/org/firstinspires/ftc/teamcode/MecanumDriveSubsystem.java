@@ -11,12 +11,12 @@ public class MecanumDriveSubsystem {
 
     private DcMotorEx leftFront, rightFront, leftBack, rightBack;
 
-    // PID Constants
+    // PID Constants (From MecanumPIDDrive)
+    private static final double MAX_TICKS_PER_SEC = 2796;
     private static final double kP = 0.0001;
     private static final double kI = 0.0;
     private static final double kD = 0.0;
     private static final double kF = 0.00036;
-    private static final double MAX_TICKS_PER_SEC = 2796;
 
     private PIDController flPID, frPID, blPID, brPID;
 
@@ -30,27 +30,20 @@ public class MecanumDriveSubsystem {
         leftBack = hardwareMap.get(DcMotorEx.class, "back_left");
         rightBack = hardwareMap.get(DcMotorEx.class, "back_right");
 
-        // Directions (Matching old MotorControl)
-        leftFront.setDirection(DcMotorSimple.Direction.REVERSE);
-        // Others default to FORWARD
+        // Directions (Matching user request: FL=Fwd, BL=Rev, FR=Fwd, BR=Rev)
+        leftFront.setDirection(DcMotor.Direction.FORWARD);
+        leftBack.setDirection(DcMotor.Direction.REVERSE);
+        rightFront.setDirection(DcMotor.Direction.FORWARD);
+        rightBack.setDirection(DcMotor.Direction.REVERSE);
 
-        // Modes
-        leftFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        rightFront.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        leftBack.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
-        rightBack.setMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        // Modes (Run Without Encoder for Custom PID)
+        setMotorMode(DcMotor.RunMode.STOP_AND_RESET_ENCODER);
+        setMotorMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
 
-        leftFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        rightFront.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        leftBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
-        rightBack.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
+        // Zero Power Behavior
+        setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
-        leftFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightFront.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        leftBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-        rightBack.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
-
-        // PIDs
+        // Init PIDs
         flPID = new PIDController(kP, kI, kD, kF);
         frPID = new PIDController(kP, kI, kD, kF);
         blPID = new PIDController(kP, kI, kD, kF);
@@ -58,15 +51,29 @@ public class MecanumDriveSubsystem {
     }
 
     public void manualDrive(Gamepad gamepad) {
-        double y = gamepad.left_trigger - gamepad.right_trigger;
-        double x = gamepad.left_stick_x;
-        double rx = gamepad.right_stick_x;
+        // --- 1. Map Controls ---
+        // Axial: Triggers (Right = Fwd, Left = Back)
+        double forwardInput = gamepad.right_trigger;
+        double backwardInput = gamepad.left_trigger;
+        double y = forwardInput - backwardInput; // Axial
 
+        // Lateral: Bumpers (Right = Right, Left = Left)
+        double x = 0;
+        if (gamepad.right_bumper)
+            x += 1.0;
+        if (gamepad.left_bumper)
+            x -= 1.0;
+
+        // Yaw: Left Stick X
+        double rx = gamepad.left_stick_x;
+
+        // --- 2. Calculate Kinematics (MecanumPIDDrive Logic) ---
         double fl = y + x + rx;
         double fr = y - x - rx;
         double bl = y - x + rx;
         double br = y + x - rx;
 
+        // Normalize
         double max = Math.max(1.0,
                 Math.max(Math.abs(fl),
                         Math.max(Math.abs(fr),
@@ -77,11 +84,7 @@ public class MecanumDriveSubsystem {
         bl /= max;
         br /= max;
 
-        // Apply PID
-        setMotorPowersPID(fl, fr, bl, br);
-    }
-
-    private void setMotorPowersPID(double fl, double fr, double bl, double br) {
+        // --- 3. PID Control (MecanumPIDDrive Logic) ---
         double flTarget = fl * MAX_TICKS_PER_SEC;
         double frTarget = fr * MAX_TICKS_PER_SEC;
         double blTarget = bl * MAX_TICKS_PER_SEC;
@@ -110,8 +113,24 @@ public class MecanumDriveSubsystem {
         rightBack.setPower(0);
     }
 
-    // Inner PID Class
-    private static class PIDController {
+    // Helpers
+
+    private void setMotorMode(DcMotor.RunMode mode) {
+        leftFront.setMode(mode);
+        leftBack.setMode(mode);
+        rightFront.setMode(mode);
+        rightBack.setMode(mode);
+    }
+
+    private void setZeroPowerBehavior(DcMotor.ZeroPowerBehavior behavior) {
+        leftFront.setZeroPowerBehavior(behavior);
+        leftBack.setZeroPowerBehavior(behavior);
+        rightFront.setZeroPowerBehavior(behavior);
+        rightBack.setZeroPowerBehavior(behavior);
+    }
+
+    // --- Inner PID Class (from MecanumPIDDrive.java) ---
+    public static class PIDController {
         private double kP, kI, kD, kF;
         private double integralSum = 0;
         private double lastError = 0;
@@ -131,10 +150,11 @@ public class MecanumDriveSubsystem {
             timer.reset();
 
             double error = target - current;
+
             double P = kP * error;
 
             integralSum += error * dt;
-            integralSum = Math.max(-INTEGRAL_MAX / kI, Math.min(INTEGRAL_MAX / kI, integralSum));
+            integralSum = clamp(integralSum, -INTEGRAL_MAX / kI, INTEGRAL_MAX / kI);
             double I = kI * integralSum;
 
             double derivative = (dt > 0) ? (error - lastError) / dt : 0;
@@ -145,7 +165,17 @@ public class MecanumDriveSubsystem {
             lastError = error;
 
             double output = P + I + D + F;
-            return Math.max(-1.0, Math.min(1.0, output));
+            return clamp(output, -1.0, 1.0);
+        }
+
+        public void reset() {
+            integralSum = 0;
+            lastError = 0;
+            timer.reset();
+        }
+
+        private double clamp(double value, double min, double max) {
+            return Math.max(min, Math.min(max, value));
         }
     }
 }
