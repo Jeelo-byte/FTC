@@ -19,7 +19,7 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
  */
 public class SpindexerSubsystem {
 
-    private final CRServo spindexerServo;
+    private final ServoMovementHelper spindexerHelper;
     private final DcMotor intakeMotor;
     private final ColorSensor colorSensor;
 
@@ -28,7 +28,7 @@ public class SpindexerSubsystem {
     // -----------------------------
     // User tuned: 120 degrees ~= 330.5ms at your configured power
     private static final double MS_PER_DEGREE = 619.69 / 120.0;
-    public static final double SPIN_POWER = -0.375; // Clockwise for your setup
+    public static final double SPIN_POWER = 0.375; // Positive power (helper handles direction)
 
     // Auto moves (used by auto-intake / auto-shoot). +5% time to prevent underturn.
     private static final double AUTO_TURN_MULTIPLIER = 0.594;
@@ -64,7 +64,6 @@ public class SpindexerSubsystem {
 
     private int targetSlot = -1;
     private int slotsToMove = 0;
-    private long plannedMoveMs = 0;
     private long pauseMs = 0;
 
     // Sensor cache for telemetry
@@ -87,11 +86,12 @@ public class SpindexerSubsystem {
     }
 
     public SpindexerSubsystem(HardwareMap hardwareMap) {
-        spindexerServo = hardwareMap.get(CRServo.class, "spindexer_servo");
+        CRServo spindexerServo = hardwareMap.get(CRServo.class, "spindexer_servo");
         intakeMotor = hardwareMap.get(DcMotor.class, "intake_motor");
         colorSensor = hardwareMap.get(ColorSensor.class, "sensor_color");
 
-        spindexerServo.setPower(0);
+        // Initialize spindexer helper with tuned ms/degree
+        spindexerHelper = new ServoMovementHelper(spindexerServo, MS_PER_DEGREE);
 
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
         intakeMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
@@ -130,12 +130,11 @@ public class SpindexerSubsystem {
     public void stopAutoIntake() {
         autoIntakeEnabled = false;
         intakeMotor.setPower(0.0);
-        spindexerServo.setPower(0.0);
+        spindexerHelper.stop();
 
         autoState = AutoState.IDLE;
         targetSlot = -1;
         slotsToMove = 0;
-        plannedMoveMs = 0;
         pauseMs = 0;
     }
 
@@ -193,9 +192,8 @@ public class SpindexerSubsystem {
 
             case ROTATE_TO_TARGET_START: {
                 double deg = slotsToMove * 120.0;
-                plannedMoveMs = autoMoveMs(deg);
-
-                spindexerServo.setPower(SPIN_POWER);
+                // Negative degrees for clockwise rotation (matching original SPIN_POWER of -0.375)
+                spindexerHelper.startMoveWithMultiplier(-deg, SPIN_POWER, AUTO_TURN_MULTIPLIER);
                 stateTimer.reset();
                 autoState = AutoState.ROTATE_TO_TARGET_WAIT;
                 break;
@@ -204,8 +202,7 @@ public class SpindexerSubsystem {
             case ROTATE_TO_TARGET_WAIT: {
                 driveAction.run();
 
-                if (stateTimer.milliseconds() >= plannedMoveMs) {
-                    spindexerServo.setPower(0);
+                if (spindexerHelper.update()) {
                     currentSlot = targetSlot;
 
                     pauseMs = 200;
@@ -261,9 +258,8 @@ public class SpindexerSubsystem {
             }
 
             case INDEX_START: {
-                plannedMoveMs = autoMoveMs(120.0);
-
-                spindexerServo.setPower(SPIN_POWER);
+                // Negative degrees for clockwise rotation
+                spindexerHelper.startMoveWithMultiplier(-120.0, SPIN_POWER, AUTO_TURN_MULTIPLIER);
                 stateTimer.reset();
                 autoState = AutoState.INDEX_WAIT;
                 break;
@@ -271,8 +267,7 @@ public class SpindexerSubsystem {
 
             case INDEX_WAIT: {
                 driveAction.run();
-                if (stateTimer.milliseconds() >= plannedMoveMs) {
-                    spindexerServo.setPower(0);
+                if (spindexerHelper.update()) {
                     autoState = AutoState.WAIT_COLOR_CLEAR;
                     stateTimer.reset();
                 }
@@ -349,26 +344,21 @@ public class SpindexerSubsystem {
     }
 
     // ---------------------------------------------------------------------
-    // Manual movement (kept as-is)
+    // Manual movement (using helper for consistency)
     // ---------------------------------------------------------------------
 
     public void moveSpindexer(double spindexerDegrees, Runnable driveAction, boolean opModeActive) {
-        long duration = (long) (spindexerDegrees * MS_PER_DEGREE);
-
-        spindexerServo.setPower(SPIN_POWER);
-        sleepWithDrive(duration, driveAction, opModeActive);
-        spindexerServo.setPower(0);
+        // Negative degrees for clockwise rotation (matching original behavior)
+        spindexerHelper.moveBlocking(-spindexerDegrees, SPIN_POWER, driveAction, opModeActive);
     }
 
     /**
-     * Auto move (uses +5% time) — used by auto-shoot sequencing too.
+     * Auto move (uses +5% time) – used by auto-shoot sequencing too.
      */
     public void moveSpindexerAutoDegrees(double spindexerDegrees, Runnable driveAction, boolean opModeActive) {
-        long duration = autoMoveMs(spindexerDegrees);
-
-        spindexerServo.setPower(SPIN_POWER);
-        sleepWithDrive(duration, driveAction, opModeActive);
-        spindexerServo.setPower(0);
+        // Negative degrees for clockwise rotation
+        spindexerHelper.moveBlockingWithMultiplier(-spindexerDegrees, SPIN_POWER,
+                AUTO_TURN_MULTIPLIER, driveAction, opModeActive);
     }
 
     public void rotateToShooter(Runnable driveAction, boolean opModeActive) {
@@ -414,17 +404,6 @@ public class SpindexerSubsystem {
     // ---------------------------------------------------------------------
     // Internals
     // ---------------------------------------------------------------------
-
-    private long autoMoveMs(double degrees) {
-        return (long) (degrees * MS_PER_DEGREE * AUTO_TURN_MULTIPLIER);
-    }
-
-    private void sleepWithDrive(long ms, Runnable driveAction, boolean opModeActive) {
-        ElapsedTime t = new ElapsedTime();
-        while (opModeActive && t.milliseconds() < ms) {
-            driveAction.run();
-        }
-    }
 
     // Exact GREEN/PURPLE detection logic (ColorSortREVLogic) + alpha gate
     private String checkColorSensor() {

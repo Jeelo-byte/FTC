@@ -1,36 +1,36 @@
 package org.firstinspires.ftc.teamcode;
 
-import com.qualcomm.robotcore.hardware.CRServo;
+import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
 import com.qualcomm.robotcore.hardware.DcMotorSimple;
 import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.PIDFCoefficients;
-import com.qualcomm.robotcore.util.ElapsedTime;
 
 /**
  * Flywheel + Lift subsystem.
  *
+ * Uses standard Servo in ANGULAR mode for the lift (position control).
+ * Uses precise position-based movement for consistent lifting.
+ *
  * Notes:
  * - Auto-shoot uses the spindexer sequence: +60°, then +120°, then +120°.
- * - Spindexer moves for auto-shoot should use SpindexerSubsystem's AUTO timing
- * (+5%).
- * - Lift angles in auto-shoot are also bumped slightly (+5%) to compensate
- * under-rotation.
+ * - Lift uses position control for reliable movement.
  */
 public class ShooterLiftSubsystem {
 
     private final DcMotorEx shooterMotor;
-    private final CRServo liftServo;
+    private final Servo liftServo;
 
     // Lift constants
-    private static final double TARGET_LIFT_DEGREES = 65.0;
-    private static final double AUTO_SHOOT_ANGLE_MULTIPLIER = 1.05; // +5% for lift angles only
+    private static final double LIFT_DOWN_POSITION = 0.0;   // Servo position when down
+    private static final double LIFT_UP_POSITION = 0.65;    // Servo position when up (adjust as needed)
+    private static final long LIFT_MOVE_TIME_MS = 400;      // Time for servo to complete movement
 
-    private double initialShootAngleOffset = 45;
+    private double initialShootAngleOffset = 50;
+    private double secondaryShootAngleOffset = 5;
+    private double returnToIntakeOffset = 10.0;  // Adjustable offset for return positioning
 
-    private double msPerDegree = 5.0;
-    private double currentDegrees = 0.0;
     private boolean isLiftUp = false;
 
     // Shooter state
@@ -52,7 +52,7 @@ public class ShooterLiftSubsystem {
 
     public ShooterLiftSubsystem(HardwareMap hardwareMap) {
         shooterMotor = hardwareMap.get(DcMotorEx.class, "flywheel");
-        liftServo = hardwareMap.get(CRServo.class, "liftServo");
+        liftServo = hardwareMap.get(Servo.class, "liftServo");
 
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
         shooterMotor.setDirection(DcMotorSimple.Direction.REVERSE);
@@ -62,8 +62,8 @@ public class ShooterLiftSubsystem {
 
         updatePIDF();
 
-        liftServo.setPower(0);
-        currentDegrees = 0.0;
+        // Initialize lift servo to down position
+        liftServo.setPosition(LIFT_DOWN_POSITION);
     }
 
     // --------------------
@@ -133,81 +133,56 @@ public class ShooterLiftSubsystem {
 
     public void toggleLift() {
         if (isLiftUp) {
-            moveLiftDegrees(-TARGET_LIFT_DEGREES);
+            liftServo.setPosition(LIFT_DOWN_POSITION);
             isLiftUp = false;
         } else {
-            moveLiftDegrees(TARGET_LIFT_DEGREES);
+            liftServo.setPosition(LIFT_UP_POSITION);
             isLiftUp = true;
         }
     }
 
     public void toggleLift(Runnable driveAction, boolean opModeActive) {
         if (isLiftUp) {
-            moveLiftDegrees(-TARGET_LIFT_DEGREES, driveAction, opModeActive);
+            liftServo.setPosition(LIFT_DOWN_POSITION);
+            sleepWithDrive(LIFT_MOVE_TIME_MS, driveAction, opModeActive);
             isLiftUp = false;
         } else {
-            moveLiftDegrees(TARGET_LIFT_DEGREES, driveAction, opModeActive);
+            liftServo.setPosition(LIFT_UP_POSITION);
+            sleepWithDrive(LIFT_MOVE_TIME_MS, driveAction, opModeActive);
             isLiftUp = true;
         }
     }
 
-    private void moveLiftDegrees(double degrees) {
-        long duration = (long) (Math.abs(degrees) * msPerDegree);
-        double power = (degrees > 0) ? -1.0 : 1.0;
-
-        liftServo.setPower(power);
-        sleep(duration);
-        liftServo.setPower(0);
-
-        currentDegrees += degrees;
+    private void moveLiftUp(Runnable driveAction, boolean opModeActive) {
+        liftServo.setPosition(LIFT_UP_POSITION);
+        sleepWithDrive(LIFT_MOVE_TIME_MS, driveAction, opModeActive);
+        isLiftUp = true;
     }
 
-    private void moveLiftDegrees(double degrees, Runnable driveAction, boolean opModeActive) {
-        long duration = (long) (Math.abs(degrees) * msPerDegree);
-        double power = (degrees > 0) ? -1.0 : 1.0;
-
-        liftServo.setPower(power);
-        sleepWithDrive(duration, driveAction, opModeActive);
-        liftServo.setPower(0);
-
-        currentDegrees += degrees;
-    }
-
-    private void sleep(long ms) {
-        try {
-            Thread.sleep(ms);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    private void sleepWithDrive(long ms, Runnable driveAction, boolean opModeActive) {
-        ElapsedTime t = new ElapsedTime();
-        while (opModeActive && t.milliseconds() < ms) {
-            driveAction.run();
-        }
+    private void moveLiftDown(Runnable driveAction, boolean opModeActive) {
+        liftServo.setPosition(LIFT_DOWN_POSITION);
+        sleepWithDrive(LIFT_MOVE_TIME_MS, driveAction, opModeActive);
+        isLiftUp = false;
     }
 
     // --------------------
     // Calibration / getters
     // --------------------
 
-    public void adjustCalibration(double deltaMsPerDeg) {
-        msPerDegree += deltaMsPerDeg;
-        if (msPerDegree < 0.1)
-            msPerDegree = 0.1;
+    public void adjustLiftUpPosition(double delta) {
+        double newPosition = LIFT_UP_POSITION + delta;
+        // Clamp to valid servo range
+        if (newPosition >= 0.0 && newPosition <= 1.0) {
+            liftServo.setPosition(newPosition);
+        }
     }
 
-    public void zeroDegrees() {
-        currentDegrees = 0.0;
+    public double getLiftUpPosition() {
+        return LIFT_UP_POSITION;
     }
 
-    public double getCurrentDegrees() {
-        return currentDegrees;
-    }
-
-    public double getMsPerDegree() {
-        return msPerDegree;
+    public double getCurrentLiftPosition() {
+        return liftServo.getPosition();
     }
 
     public boolean isLiftUp() {
@@ -220,6 +195,14 @@ public class ShooterLiftSubsystem {
 
     public double getInitialShootAngleOffset() {
         return initialShootAngleOffset;
+    }
+
+    public void adjustReturnToIntakeOffset(double delta) {
+        returnToIntakeOffset += delta;
+    }
+
+    public double getReturnToIntakeOffset() {
+        return returnToIntakeOffset;
     }
 
     // --------------------
@@ -235,9 +218,12 @@ public class ShooterLiftSubsystem {
         if (shots <= 0)
             return;
 
+        // Track total spindexer rotation for return to intake
+        double totalSpindexerRotation = 60.0 + initialShootAngleOffset;
+
         // 1) Pre-align: +60 degrees (half of 120) PLUS OFFSET, using the SAME auto-turn
         // logic as auto-intake
-        // initialShootAngleOffset to contur for servo spedness
+        // initialShootAngleOffset to contour for servo spedness
         spindexer.moveSpindexerAutoDegrees(60.0 + initialShootAngleOffset, driveAction, opModeActive);
 
         // 2) Spin up
@@ -249,27 +235,39 @@ public class ShooterLiftSubsystem {
             // Wait for flywheel to recover before each shot
             sleepWithDrive(350, driveAction, opModeActive);
 
-            // Lift up to fire (slightly boosted angle)
-            moveLiftDegrees(TARGET_LIFT_DEGREES * AUTO_SHOOT_ANGLE_MULTIPLIER, driveAction, opModeActive);
-            isLiftUp = true;
+            // Lift up to fire (position controlled servo)
+            moveLiftUp(driveAction, opModeActive);
 
             sleepWithDrive(150, driveAction, opModeActive);
 
             // Lift down
-            moveLiftDegrees(-(TARGET_LIFT_DEGREES * AUTO_SHOOT_ANGLE_MULTIPLIER), driveAction, opModeActive);
-            isLiftUp = false;
+            moveLiftDown(driveAction, opModeActive);
 
             // Index to next ball if there is one remaining:
-            // shot 0 -> +120
-            // shot 1 -> +120
+            // shot 0 -> shot 1: +120 + full offset (works great)
+            // shot 1 -> shot 2: +120 + reduced offset (3rd shot was rotating too much)
             if (iShot < shots - 1) {
-                spindexer.moveSpindexerAutoDegrees(160.0 // 2nd rotation
-                        , driveAction, opModeActive);
+                // First index uses full offset, second index uses half offset
+                double indexOffset = (iShot == 0) ? secondaryShootAngleOffset : (secondaryShootAngleOffset / 2.0);
+                spindexer.moveSpindexerAutoDegrees(120.0 + indexOffset, driveAction, opModeActive);
+                totalSpindexerRotation += 120.0 + indexOffset;
             }
         }
 
         // 4) Stop shooter
         setShooterPower(0.0);
         isLiftUp = false;
+
+        // 5) Return spindexer to intake position by reversing the total rotation
+        // Use adjustable offset (you can tune this with adjustReturnToIntakeOffset method)
+        spindexer.moveSpindexerAutoDegrees(-(totalSpindexerRotation + returnToIntakeOffset), driveAction, opModeActive);
     }
-} // k
+
+    // Helper method for timing with drive action
+    private void sleepWithDrive(long ms, Runnable driveAction, boolean opModeActive) {
+        com.qualcomm.robotcore.util.ElapsedTime t = new com.qualcomm.robotcore.util.ElapsedTime();
+        while (opModeActive && t.milliseconds() < ms) {
+            driveAction.run();
+        }
+    }
+}
