@@ -31,7 +31,7 @@ public class SpindexerSubsystem {
     public static final double SPIN_POWER = 0.375; // Positive power (helper handles direction)
 
     // Auto moves (used by auto-intake / auto-shoot). +5% time to prevent underturn.
-    private static final double AUTO_TURN_MULTIPLIER = 0.594;
+    private static final double AUTO_TURN_MULTIPLIER = 0.55;
 
     // -----------------------------
     // Color logic (from your OpMode)
@@ -399,22 +399,6 @@ public class SpindexerSubsystem {
             s.isEmpty = true;
             s.color = "Empty";
         }
-    }
-
-    // ---------------------------------------------------------------------
-    // Calibration delegation
-    // ---------------------------------------------------------------------
-
-    public void adjustCalibration(double delta) {
-        spindexerHelper.adjustCalibration(delta);
-    }
-
-    public double getMsPerDegree() {
-        return spindexerHelper.getMsPerDegree();
-    }
-
-    public double getCurrentDegrees() {
-        return spindexerHelper.getCurrentDegrees();
     }
 
     // ---------------------------------------------------------------------

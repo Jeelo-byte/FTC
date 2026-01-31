@@ -321,6 +321,7 @@ public class MotorControl2 extends LinearOpMode {
         List<AprilTagDetection> detections = aprilTag.getDetections();
 
         if (detections.size() > 0) {
+
             AprilTagDetection detection = detections.get(0);
             int tagId = detection.id;
 

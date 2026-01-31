@@ -1,10 +1,9 @@
 package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
-import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
-@TeleOp(name = "Potential Semi-Auto", group = "Modular")
-public class PotentialSemiAuto extends LinearOpMode {
+@com.qualcomm.robotcore.eventloop.opmode.TeleOp(name = "Potential Semi-Auto", group = "Modular")
+public class TeleOp extends LinearOpMode {
 
     // Subsystems
     private MecanumDriveSubsystem drive;
@@ -100,13 +99,13 @@ public class PotentialSemiAuto extends LinearOpMode {
             // --- Calibration (right stick Y) ---
             boolean rightStickUp = gamepad1.right_stick_y < -0.5;
             if (rightStickUp && !lastRightStickUp) {
-                spindexer.adjustCalibration(0.5);
+                shooterLift.adjustCalibration(0.5);
             }
             lastRightStickUp = rightStickUp;
 
             boolean rightStickDown = gamepad1.right_stick_y > 0.5;
             if (rightStickDown && !lastRightStickDown) {
-                spindexer.adjustCalibration(-0.5);
+                shooterLift.adjustCalibration(-0.5);
             }
             lastRightStickDown = rightStickDown;
 
@@ -128,9 +127,9 @@ public class PotentialSemiAuto extends LinearOpMode {
             telemetry.addData("Lift", shooterLift.isLiftUp() ? "UP" : "DOWN");
 
             telemetry.addLine("\n--- Calibration ---");
-            telemetry.addData("Calib (ms/deg)", "%.2f", spindexer.getMsPerDegree());
+            telemetry.addData("Calib (ms/deg)", "%.2f", shooterLift.getMsPerDegree());
             telemetry.addData("Shoot Offset", "%.1f", shooterLift.getInitialShootAngleOffset());
-            telemetry.addData("Cur Degrees", "%.1f", spindexer.getCurrentDegrees());
+            telemetry.addData("Cur Degrees", "%.1f", shooterLift.getCurrentDegrees());
 
             // --- REQUIRED: run auto-intake state machine every loop (non-blocking) ---
             spindexer.updateAutoIntake(telemetry, driveAction, opModeIsActive());
