@@ -11,24 +11,25 @@ public class PotentialSemiAuto extends LinearOpMode {
     private SpindexerSubsystem spindexer;
     private ShooterLiftSubsystem shooterLift;
 
-    // State for Debouncing
-    boolean lastSquare = false;
-    boolean lastCircle = false;
-    boolean lastTriangle = false;
-    boolean lastCross = false;
-    boolean lastDpadLeft = false;
-    boolean lastDpadRight = false;
-    boolean lastDpadUp = false;
-    boolean lastDpadDown = false;
+    // Debounce state
+    private boolean lastSquare = false;
+    private boolean lastCircle = false;
+    private boolean lastTriangle = false;
+    private boolean lastCross = false;
+    private boolean lastDpadLeft = false;
+    private boolean lastDpadRight = false;
+    private boolean lastDpadUp = false;
+    private boolean lastDpadDown = false;
 
-    // Calibration Debounce
-    boolean lastRightStickUp = false;
-    boolean lastRightStickDown = false;
-    boolean isEditingUp = true;
+    // Calibration debounce
+    private boolean lastRightStickUp = false;
+    private boolean lastRightStickDown = false;
+    private boolean lastLeftBumper = false;
+    private boolean lastRightBumper = false;
 
     @Override
     public void runOpMode() {
-        // Init Subsystems
+
         drive = new MecanumDriveSubsystem(hardwareMap);
         spindexer = new SpindexerSubsystem(hardwareMap);
         shooterLift = new ShooterLiftSubsystem(hardwareMap);
@@ -40,43 +41,42 @@ public class PotentialSemiAuto extends LinearOpMode {
 
         while (opModeIsActive()) {
 
-            // --- 0. Drive ---
+            // --- Drive (always) ---
             drive.manualDrive(gamepad1);
 
-            // --- 1. Subsystem Actions (passed Drive capability) ---
+            // Let subsystems keep drive responsive during sleeps/moves
             Runnable driveAction = () -> drive.manualDrive(gamepad1);
 
-            // --- 2. Auto Intake Toggle (Circle) ---
+            // --- Auto Intake Toggle (Circle) ---
+            // Press once: ON. Press again: OFF. Auto-OFF when 3 balls loaded.
             if (gamepad1.circle && !lastCircle) {
-                // Now uses toggle logic
-                spindexer.toggleIntake(telemetry, driveAction, opModeIsActive());
+                spindexer.toggleAutoIntake();
             }
             lastCircle = gamepad1.circle;
 
-            // --- 3. Auto Shoot (Cross) ---
+            // --- Auto Shoot (Cross) ---
             if (gamepad1.cross && !lastCross) {
+                // Stop intake so it doesn't fight auto-shoot
+                if (spindexer.isAutoIntakeEnabled()) {
+                    spindexer.stopAutoIntake();
+                }
                 shooterLift.shootMacro(spindexer, driveAction, opModeIsActive());
             }
             lastCross = gamepad1.cross;
 
-            // --- 4. Toggles ---
-
-            // Shooter (Square)
+            // --- Shooter Toggle (Square) ---
             if (gamepad1.square && !lastSquare) {
                 shooterLift.toggleShooter();
             }
             lastSquare = gamepad1.square;
 
-            // Lift (Triangle)
+            // --- Lift Toggle (Triangle) ---
             if (gamepad1.triangle && !lastTriangle) {
                 shooterLift.toggleLift();
             }
             lastTriangle = gamepad1.triangle;
 
-            // --- 5. Manual Spindexer (D-Pad L/R) ---
-            // --- 5. Tuning (D-Pad) & Manual Spindexer (L-Stick + D-Pad) ---
-
-            // F Tuning (Up/Down)
+            // --- F tuning (D-pad up/down) ---
             if (gamepad1.dpad_up && !lastDpadUp) {
                 shooterLift.adjustF(0.5);
             }
@@ -87,59 +87,57 @@ public class PotentialSemiAuto extends LinearOpMode {
             }
             lastDpadDown = gamepad1.dpad_down;
 
-            // D-Pad Left/Right: Manual Spindexer (Always Active)
+            // --- Manual spindexer (D-pad left/right) ---
             if (gamepad1.dpad_left && !lastDpadLeft) {
-                // Manual Rotate + (120 deg)
                 spindexer.moveSpindexer(120.0, driveAction, opModeIsActive());
             }
-
             if (gamepad1.dpad_right && !lastDpadRight) {
-                // Manual Rotate - (60 deg)
                 spindexer.moveSpindexer(60.0, driveAction, opModeIsActive());
             }
-
             lastDpadLeft = gamepad1.dpad_left;
             lastDpadRight = gamepad1.dpad_right;
 
-            // --- 6. Calibration (Right Stick Y) ---
-
-            // Stick Up (Negative Y) -> Increase ms/deg (Slower)
+            // --- Calibration (right stick Y) ---
             boolean rightStickUp = gamepad1.right_stick_y < -0.5;
             if (rightStickUp && !lastRightStickUp) {
                 shooterLift.adjustCalibration(0.5);
             }
             lastRightStickUp = rightStickUp;
 
-            // Stick Down (Positive Y) -> Decrease ms/deg (Faster)
             boolean rightStickDown = gamepad1.right_stick_y > 0.5;
             if (rightStickDown && !lastRightStickDown) {
                 shooterLift.adjustCalibration(-0.5);
             }
             lastRightStickDown = rightStickDown;
 
-            // --- Telemetry ---
+            // --- Calibration: Shoot Angle Offset (Bumpers) ---
+            if (gamepad1.left_bumper && !lastLeftBumper) {
+                shooterLift.adjustInitialShootAngleOffset(-0.5);
+            }
+            lastLeftBumper = gamepad1.left_bumper;
+
+            if (gamepad1.right_bumper && !lastRightBumper) {
+                shooterLift.adjustInitialShootAngleOffset(0.5);
+            }
+            lastRightBumper = gamepad1.right_bumper;
+
+            // --- Telemetry (Shooter/Lift) ---
             telemetry.addData("Shooter", shooterLift.isShooterOn() ? "ON" : "OFF");
             telemetry.addData("Velocity", "%.0f / %.0f", shooterLift.getVelocity(), shooterLift.getTargetVelocity());
             telemetry.addData("PIDF", "P:%.1f F:%.1f", shooterLift.getP(), shooterLift.getF());
             telemetry.addData("Lift", shooterLift.isLiftUp() ? "UP" : "DOWN");
-            // Spindexer Telemetry
-            //spindexer.printTelemetry(telemetry);
 
             telemetry.addLine("\n--- Calibration ---");
             telemetry.addData("Calib (ms/deg)", "%.2f", shooterLift.getMsPerDegree());
+            telemetry.addData("Shoot Offset", "%.1f", shooterLift.getInitialShootAngleOffset());
             telemetry.addData("Cur Degrees", "%.1f", shooterLift.getCurrentDegrees());
-            // telemetry.addData("DOWN Pos", "%.2f", shooterLift.getLiftDownPos());
+
+            // --- REQUIRED: run auto-intake state machine every loop (non-blocking) ---
+            spindexer.updateAutoIntake(telemetry, driveAction, opModeIsActive());
 
             telemetry.update();
         }
 
         drive.stop();
-    }
-
-    private void sleepWithDrive(long ms, Runnable driveAction) {
-        long start = System.currentTimeMillis();
-        while (opModeIsActive() && (System.currentTimeMillis() - start < ms)) {
-            driveAction.run();
-        }
     }
 }
