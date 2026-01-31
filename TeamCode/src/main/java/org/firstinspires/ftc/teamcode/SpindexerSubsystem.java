@@ -12,10 +12,11 @@ import org.firstinspires.ftc.robotcore.external.Telemetry;
  *
  * Includes:
  * - Manual spindexer moves (your tuned timings)
- * - Auto-intake as a NON-BLOCKING state machine (call updateAutoIntake each
- * loop)
+ * - Auto-intake as a NON-BLOCKING state machine (call updateAutoIntake each loop)
  * - Color detection logic copied from ColorSortREVLogic (GREEN/PURPLE)
- * - Auto moves use +5% time to prevent slight under-turn (AUTO_TURN_MULTIPLIER)
+ * - SEPARATE TUNING:
+ * 1. SHOOTING uses the original 0.55 multiplier (perfect).
+ * 2. INTAKE uses a reduced 0.45 multiplier to fix overshoot.
  */
 public class SpindexerSubsystem {
 
@@ -30,8 +31,18 @@ public class SpindexerSubsystem {
     private static final double MS_PER_DEGREE = 619.69 / 120.0;
     public static final double SPIN_POWER = 0.375; // Positive power (helper handles direction)
 
-    // Auto moves (used by auto-intake / auto-shoot). +5% time to prevent underturn.
-    private static final double AUTO_TURN_MULTIPLIER = 0.55;
+    // -----------------------------
+    // Multipliers (Separated to fix overshoot without breaking shooting)
+    // -----------------------------
+
+    // 1. SHOOTING MULTIPLIER (Old AUTO_TURN_MULTIPLIER)
+    // KEPT EXACTLY THE SAME so shooting remains perfect.
+    private static final double SHOOT_TURN_MULTIPLIER = 0.55;
+
+    // 2. INTAKE MULTIPLIER (NEW)
+    // Reduced from 0.55 to 0.45 to fix the intake overshoot.
+    // If it still overshoots, LOWER this. If it undershoots, RAISE it.
+    private static final double INTAKE_TURN_MULTIPLIER = 0.45;
 
     // -----------------------------
     // Color logic (from your OpMode)
@@ -170,7 +181,7 @@ public class SpindexerSubsystem {
                 targetSlot = -1;
                 slotsToMove = 0;
 
-                // Find nearest empty slot relative to currentSlot (same logic you used before)
+                // Find nearest empty slot relative to currentSlot
                 for (int i = 0; i < 3; i++) {
                     int checkIndex = (currentSlot - i + 3) % 3;
                     if (ballSlots[checkIndex].isEmpty) {
@@ -192,8 +203,8 @@ public class SpindexerSubsystem {
 
             case ROTATE_TO_TARGET_START: {
                 double deg = slotsToMove * 120.0;
-                // Negative degrees for clockwise rotation (matching original SPIN_POWER of -0.375)
-                spindexerHelper.startMoveWithMultiplier(-deg, SPIN_POWER, AUTO_TURN_MULTIPLIER);
+                // --- FIX: USE INTAKE MULTIPLIER (0.45) TO PREVENT OVERSHOOT ---
+                spindexerHelper.startMoveWithMultiplier(-deg, SPIN_POWER, INTAKE_TURN_MULTIPLIER);
                 stateTimer.reset();
                 autoState = AutoState.ROTATE_TO_TARGET_WAIT;
                 break;
@@ -258,8 +269,8 @@ public class SpindexerSubsystem {
             }
 
             case INDEX_START: {
-                // Negative degrees for clockwise rotation
-                spindexerHelper.startMoveWithMultiplier(-120.0, SPIN_POWER, AUTO_TURN_MULTIPLIER);
+                // --- FIX: USE INTAKE MULTIPLIER (0.45) TO PREVENT OVERSHOOT ---
+                spindexerHelper.startMoveWithMultiplier(-120.0, SPIN_POWER, INTAKE_TURN_MULTIPLIER);
                 stateTimer.reset();
                 autoState = AutoState.INDEX_WAIT;
                 break;
@@ -319,21 +330,14 @@ public class SpindexerSubsystem {
     }
 
     // ---------------------------------------------------------------------
-    // Backward-compatible methods (older code might still call these)
+    // Backward-compatible methods
     // ---------------------------------------------------------------------
 
-    /** Old name. Keeps behavior toggleable (non-blocking) now. */
     public void toggleIntake(Telemetry telemetry, Runnable driveAction, boolean opModeActive) {
         toggleAutoIntake();
-        // TeleOp should be calling updateAutoIntake() every loop.
-        // This method is left only so old code compiles.
         addTelemetry(telemetry);
     }
 
-    /**
-     * Old blocking intake sequence. Not recommended anymore, but kept so nothing
-     * breaks.
-     */
     public void startIntakeSequence(Telemetry telemetry, Runnable driveAction, boolean opModeActive) {
         startAutoIntake();
         while (opModeActive && isAutoIntakeEnabled()) {
@@ -348,17 +352,18 @@ public class SpindexerSubsystem {
     // ---------------------------------------------------------------------
 
     public void moveSpindexer(double spindexerDegrees, Runnable driveAction, boolean opModeActive) {
-        // Negative degrees for clockwise rotation (matching original behavior)
+        // Negative degrees for clockwise rotation
         spindexerHelper.moveBlocking(-spindexerDegrees, SPIN_POWER, driveAction, opModeActive);
     }
 
     /**
-     * Auto move (uses +5% time) – used by auto-shoot sequencing too.
+     * Auto move used by SHOOTING.
+     * Uses SHOOT_TURN_MULTIPLIER (0.55) to keep shooting "perfect".
      */
     public void moveSpindexerAutoDegrees(double spindexerDegrees, Runnable driveAction, boolean opModeActive) {
         // Negative degrees for clockwise rotation
         spindexerHelper.moveBlockingWithMultiplier(-spindexerDegrees, SPIN_POWER,
-                AUTO_TURN_MULTIPLIER, driveAction, opModeActive);
+                SHOOT_TURN_MULTIPLIER, driveAction, opModeActive);
     }
 
     public void rotateToShooter(Runnable driveAction, boolean opModeActive) {
@@ -405,7 +410,6 @@ public class SpindexerSubsystem {
     // Internals
     // ---------------------------------------------------------------------
 
-    // Exact GREEN/PURPLE detection logic (ColorSortREVLogic) + alpha gate
     private String checkColorSensor() {
         r = colorSensor.red();
         g = colorSensor.green();

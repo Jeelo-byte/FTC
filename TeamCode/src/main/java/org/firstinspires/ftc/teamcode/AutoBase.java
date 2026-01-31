@@ -65,7 +65,7 @@ public abstract class AutoBase extends LinearOpMode {
         intakeMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.BRAKE);
 
         // Shooter
-        shooterMotor = hardwareMap.get(DcMotorEx.class, "shooter_motor");
+        shooterMotor = hardwareMap.get(DcMotorEx.class, "flywheel");
         shooterMotor.setMode(DcMotor.RunMode.RUN_WITHOUT_ENCODER);
         shooterMotor.setZeroPowerBehavior(DcMotor.ZeroPowerBehavior.FLOAT);
 
@@ -75,7 +75,7 @@ public abstract class AutoBase extends LinearOpMode {
         liftServo.setPower(0);
 
         // Sensors
-        colorSensor = hardwareMap.get(ColorSensor.class, "color_sensor");
+        colorSensor = hardwareMap.get(ColorSensor.class, "sensor_color");
     }
 
     protected void resetEncoders() {
