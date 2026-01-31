@@ -14,7 +14,7 @@ public class ShooterLiftSubsystem {
     private CRServo liftServo;
 
     // Lift Constants
-    private static final double TARGET_LIFT_DEGREES = 60.0;
+    private static final double TARGET_LIFT_DEGREES = 65.0;
     private double msPerDegree = 5.0;
     private double currentDegrees = 0.0;
     private boolean isLiftUp = false;
@@ -34,7 +34,7 @@ public class ShooterLiftSubsystem {
     private double f = DEFAULT_F;
 
     // Target Velocity (User requested 2500)
-    private double targetVelocity = 2500;
+    private double targetVelocity = 2000;
 
     public ShooterLiftSubsystem(HardwareMap hardwareMap) {
         shooterMotor = hardwareMap.get(DcMotorEx.class, "flywheel");
@@ -194,31 +194,30 @@ public class ShooterLiftSubsystem {
     // --- Macros ---
 
     public void shootMacro(SpindexerSubsystem spindexer, Runnable driveAction, boolean opModeActive) {
-        // Spin Up
-        setShooterPower(1.0);
+        // 1. Align Spindexer to Shooter (60 degrees)
+        spindexer.rotateToShooter(driveAction, opModeActive);
 
-        // Wait for Spin Up (1000ms for safety)
-        sleepWithDrive(1000, driveAction, opModeActive);
+        // 2. Start Spin Up
+        setShooterPower(1.0);
 
         int shots = 3;
         for (int i = 0; i < shots && opModeActive; i++) {
-            // Lift Up
+            // 3. Wait for Spin Up (0.35s before each shot)
+            sleepWithDrive(350, driveAction, opModeActive);
+
+            // 4. Lift Up (Fire)
             moveLiftDegrees(TARGET_LIFT_DEGREES, driveAction, opModeActive);
             isLiftUp = true;
 
-            sleepWithDrive(150, driveAction, opModeActive);
+            sleepWithDrive(150, driveAction, opModeActive); // Brief hold
 
-            // Lift Down
+            // 5. Lift Down (Reset)
             moveLiftDegrees(-TARGET_LIFT_DEGREES, driveAction, opModeActive);
             isLiftUp = false;
 
-            sleepWithDrive(150, driveAction, opModeActive);
-
-            // Index
+            // 6. Index to next ball (if not last)
             if (i < shots - 1) {
-                spindexer.setSpindexerPower(SpindexerSubsystem.SPIN_POWER);
-                sleepWithDrive(380, driveAction, opModeActive);
-                spindexer.setSpindexerPower(0);
+                spindexer.indexOneSlot(driveAction, opModeActive);
             }
         }
 

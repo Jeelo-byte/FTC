@@ -87,29 +87,17 @@ public class PotentialSemiAuto extends LinearOpMode {
             }
             lastDpadDown = gamepad1.dpad_down;
 
-            // D-Pad Left/Right Logic
-            if (gamepad1.left_stick_button) {
-                // Modifier Active: Manual Spindexer
-                if (gamepad1.dpad_left && !lastDpadLeft) {
-                    spindexer.setSpindexerPower(0.3);
-                    sleepWithDrive(380, driveAction);
-                    spindexer.setSpindexerPower(0);
-                }
-
-                if (gamepad1.dpad_right && !lastDpadRight) {
-                    spindexer.setSpindexerPower(-0.3);
-                    sleepWithDrive(190, driveAction); // 60 deg?
-                    spindexer.setSpindexerPower(0);
-                }
-            } else {
-                // Modifier Inactive: P Tuning
-                if (gamepad1.dpad_right && !lastDpadRight) {
-                    shooterLift.adjustP(1.0);
-                }
-                if (gamepad1.dpad_left && !lastDpadLeft) {
-                    shooterLift.adjustP(-1.0);
-                }
+            // D-Pad Left/Right: Manual Spindexer (Always Active)
+            if (gamepad1.dpad_left && !lastDpadLeft) {
+                // Manual Rotate + (120 deg)
+                spindexer.moveSpindexer(120.0, driveAction, opModeIsActive());
             }
+
+            if (gamepad1.dpad_right && !lastDpadRight) {
+                // Manual Rotate - (60 deg)
+                spindexer.moveSpindexer(60.0, driveAction, opModeIsActive());
+            }
+
             lastDpadLeft = gamepad1.dpad_left;
             lastDpadRight = gamepad1.dpad_right;
 
@@ -135,7 +123,7 @@ public class PotentialSemiAuto extends LinearOpMode {
             telemetry.addData("PIDF", "P:%.1f F:%.1f", shooterLift.getP(), shooterLift.getF());
             telemetry.addData("Lift", shooterLift.isLiftUp() ? "UP" : "DOWN");
             // Spindexer Telemetry
-            spindexer.printTelemetry(telemetry);
+            //spindexer.printTelemetry(telemetry);
 
             telemetry.addLine("\n--- Calibration ---");
             telemetry.addData("Calib (ms/deg)", "%.2f", shooterLift.getMsPerDegree());

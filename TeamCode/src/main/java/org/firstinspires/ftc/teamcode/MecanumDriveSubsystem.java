@@ -12,7 +12,7 @@ public class MecanumDriveSubsystem {
     private DcMotorEx leftFront, rightFront, leftBack, rightBack;
 
     // PID Constants (From MecanumPIDDrive)
-    private static final double MAX_TICKS_PER_SEC = 2796;
+    private static final double MAX_TICKS_PER_SEC = 2796.0;
     private static final double kP = 0.0001;
     private static final double kI = 0.0;
     private static final double kD = 0.0;
@@ -30,9 +30,10 @@ public class MecanumDriveSubsystem {
         leftBack = hardwareMap.get(DcMotorEx.class, "back_left");
         rightBack = hardwareMap.get(DcMotorEx.class, "back_right");
 
-        // Directions (Matching user request: FL=Fwd, BL=Rev, FR=Fwd, BR=Rev)
-        leftFront.setDirection(DcMotor.Direction.FORWARD);
-        leftBack.setDirection(DcMotor.Direction.REVERSE);
+        // Directions (Matching MecanumPIDDrive)
+        // PIDDrive: FL=Rev, BR=Rev. (Implies FR=Fwd, BL=Fwd)
+        leftFront.setDirection(DcMotor.Direction.REVERSE);
+        leftBack.setDirection(DcMotor.Direction.FORWARD);
         rightFront.setDirection(DcMotor.Direction.FORWARD);
         rightBack.setDirection(DcMotor.Direction.REVERSE);
 
@@ -52,20 +53,16 @@ public class MecanumDriveSubsystem {
 
     public void manualDrive(Gamepad gamepad) {
         // --- 1. Map Controls ---
-        // Axial: Triggers (Right = Fwd, Left = Back)
-        double forwardInput = gamepad.right_trigger;
-        double backwardInput = gamepad.left_trigger;
-        double y = forwardInput - backwardInput; // Axial
+        // Axial: Left Stick Y (Up is negative, so invert)
+        double y = -gamepad.left_stick_y;
 
-        // Lateral: Bumpers (Right = Right, Left = Left)
-        double x = 0;
-        if (gamepad.right_bumper)
-            x += 1.0;
-        if (gamepad.left_bumper)
-            x -= 1.0;
+        // Lateral: Triggers (Right = Right, Left = Left)
+        double strafeRight = gamepad.right_trigger;
+        double strafeLeft = gamepad.left_trigger;
+        double x = strafeRight - strafeLeft;
 
-        // Yaw: Left Stick X
-        double rx = gamepad.left_stick_x;
+        // Yaw: Right Stick X
+        double rx = gamepad.right_stick_x;
 
         // --- 2. Calculate Kinematics (MecanumPIDDrive Logic) ---
         double fl = y + x + rx;

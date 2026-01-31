@@ -1,4 +1,4 @@
-package org.firstinspires.ftc.teamcode;
+package org.firstinspires.ftc.teamcode.autos;
 
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import org.firstinspires.ftc.teamcode.AutoBase;
@@ -20,10 +20,10 @@ public class LeaveAndShootAuto extends AutoBase {
             // (6 * sqrt(2)) / 2 ft = 3 * 1.414 ft = 4.24 ft = ~51 inches
 
             // Move backwards 51 inches
-            driveForward(-51, 0.5);
+            driveForward(51, 0.5);
 
             // Shoot all balls
-            //shootAll();
+            shootAll();
         }
     }
 }
