@@ -100,13 +100,13 @@ public class PotentialSemiAuto extends LinearOpMode {
             // --- Calibration (right stick Y) ---
             boolean rightStickUp = gamepad1.right_stick_y < -0.5;
             if (rightStickUp && !lastRightStickUp) {
-                shooterLift.adjustCalibration(0.5);
+                spindexer.adjustCalibration(0.5);
             }
             lastRightStickUp = rightStickUp;
 
             boolean rightStickDown = gamepad1.right_stick_y > 0.5;
             if (rightStickDown && !lastRightStickDown) {
-                shooterLift.adjustCalibration(-0.5);
+                spindexer.adjustCalibration(-0.5);
             }
             lastRightStickDown = rightStickDown;
 
@@ -128,9 +128,9 @@ public class PotentialSemiAuto extends LinearOpMode {
             telemetry.addData("Lift", shooterLift.isLiftUp() ? "UP" : "DOWN");
 
             telemetry.addLine("\n--- Calibration ---");
-            telemetry.addData("Calib (ms/deg)", "%.2f", shooterLift.getMsPerDegree());
+            telemetry.addData("Calib (ms/deg)", "%.2f", spindexer.getMsPerDegree());
             telemetry.addData("Shoot Offset", "%.1f", shooterLift.getInitialShootAngleOffset());
-            telemetry.addData("Cur Degrees", "%.1f", shooterLift.getCurrentDegrees());
+            telemetry.addData("Cur Degrees", "%.1f", spindexer.getCurrentDegrees());
 
             // --- REQUIRED: run auto-intake state machine every loop (non-blocking) ---
             spindexer.updateAutoIntake(telemetry, driveAction, opModeIsActive());

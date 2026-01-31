@@ -402,6 +402,22 @@ public class SpindexerSubsystem {
     }
 
     // ---------------------------------------------------------------------
+    // Calibration delegation
+    // ---------------------------------------------------------------------
+
+    public void adjustCalibration(double delta) {
+        spindexerHelper.adjustCalibration(delta);
+    }
+
+    public double getMsPerDegree() {
+        return spindexerHelper.getMsPerDegree();
+    }
+
+    public double getCurrentDegrees() {
+        return spindexerHelper.getCurrentDegrees();
+    }
+
+    // ---------------------------------------------------------------------
     // Internals
     // ---------------------------------------------------------------------
 
