@@ -23,7 +23,7 @@ public class LeaveAndShootAuto extends AutoBase {
             driveForward(51, 0.5);
 
             // Shoot all balls
-            shootAll();
+            //shootAll();
         }
     }
 }

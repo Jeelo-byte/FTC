@@ -24,8 +24,9 @@ public class ShooterLiftSubsystem {
     private static final double TARGET_LIFT_DEGREES = 65.0;
     private static final double LIFT_POWER = 1.0;
 
-    private double initialShootAngleOffset = 50;
-    private double secondaryShootAngleOffset = 0;
+    private double initialShootAngleOffset = -8.2; //shot 1
+    private double secondaryShootAngleOffset = 12; //shot 2
+    private double thirdShootAngleOffset = -14.5; //shot 3
 
     private boolean isLiftUp = false;
 
@@ -44,7 +45,7 @@ public class ShooterLiftSubsystem {
     private double f = DEFAULT_F;
 
     // Target velocity
-    private double targetVelocity = 2000;
+    private double targetVelocity = 2000/1.677; //make 2k
 
     public ShooterLiftSubsystem(HardwareMap hardwareMap) {
         shooterMotor = hardwareMap.get(DcMotorEx.class, "flywheel");
@@ -194,7 +195,7 @@ public class ShooterLiftSubsystem {
 
         // --- SETUP FOR 1st BALL ---
         // You said 1st ball works, so we keep this at 60.0
-        double firstShotDegrees = 60.0 + initialShootAngleOffset;
+        double firstShotDegrees = 90.0 + initialShootAngleOffset;
 
         double totalSpindexerRotation = firstShotDegrees;
 
@@ -228,11 +229,11 @@ public class ShooterLiftSubsystem {
                     // --- MOVING TO 2ND BALL ---
                     // You said this UNDER shoots.
                     // Increased from 126.0 to 132.0 to make it go further.
-                    nextIncrement = 132.0 + secondaryShootAngleOffset;
+                    nextIncrement = 136.0 + secondaryShootAngleOffset;
                 } else {
                     // --- MOVING TO 3RD BALL ---
                     // You said this works. Kept at 126.0.
-                    nextIncrement = 126.0 + secondaryShootAngleOffset;
+                    nextIncrement = 136.0 + thirdShootAngleOffset;
                 }
 
                 spindexer.moveSpindexerAutoDegrees(nextIncrement, driveAction, opModeActive);

@@ -88,10 +88,10 @@ public class TeleOp extends LinearOpMode {
 
             // --- Manual spindexer (D-pad left/right) ---
             if (gamepad1.dpad_left && !lastDpadLeft) {
-                spindexer.moveSpindexer(120.0, driveAction, opModeIsActive());
+                spindexer.indexOneSlot(driveAction, opModeIsActive());
             }
             if (gamepad1.dpad_right && !lastDpadRight) {
-                spindexer.moveSpindexer(60.0, driveAction, opModeIsActive());
+                spindexer.rotateToShooter(driveAction,opModeIsActive());
             }
             lastDpadLeft = gamepad1.dpad_left;
             lastDpadRight = gamepad1.dpad_right;
@@ -111,12 +111,12 @@ public class TeleOp extends LinearOpMode {
 
             // --- Calibration: Shoot Angle Offset (Bumpers) ---
             if (gamepad1.left_bumper && !lastLeftBumper) {
-                shooterLift.adjustInitialShootAngleOffset(-0.5);
+                spindexer.moveSpindexer(-5.0,driveAction,opModeIsActive());
             }
             lastLeftBumper = gamepad1.left_bumper;
 
             if (gamepad1.right_bumper && !lastRightBumper) {
-                shooterLift.adjustInitialShootAngleOffset(0.5);
+                spindexer.moveSpindexer(5,driveAction,opModeIsActive());
             }
             lastRightBumper = gamepad1.right_bumper;
 

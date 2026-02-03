@@ -42,7 +42,7 @@ public class SpindexerSubsystem {
     // 2. INTAKE MULTIPLIER (NEW)
     // Reduced from 0.55 to 0.45 to fix the intake overshoot.
     // If it still overshoots, LOWER this. If it undershoots, RAISE it.
-    private static final double INTAKE_TURN_MULTIPLIER = 0.45;
+    private static final double INTAKE_TURN_MULTIPLIER = 0.55;
 
     // -----------------------------
     // Color logic (from your OpMode)
@@ -367,17 +367,17 @@ public class SpindexerSubsystem {
     }
 
     public void rotateToShooter(Runnable driveAction, boolean opModeActive) {
-        moveSpindexer(65.0, driveAction, opModeActive);
+        moveSpindexer(62.0/1.8, driveAction, opModeActive);
     }
 
     public void indexOneSlot(Runnable driveAction, boolean opModeActive) {
-        moveSpindexer(60.0, driveAction, opModeActive);
+        moveSpindexer(58.0/1.8, driveAction, opModeActive);
         try {
-            Thread.sleep(100);
+            Thread.sleep(25);
         } catch (InterruptedException e) {
             throw new RuntimeException(e);
         }
-        moveSpindexer(60.0, driveAction, opModeActive);
+        moveSpindexer(58.20/1.8, driveAction, opModeActive);
     }
 
     public void setIntakePower(double power) {
