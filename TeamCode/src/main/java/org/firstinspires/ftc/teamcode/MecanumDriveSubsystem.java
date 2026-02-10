@@ -54,15 +54,15 @@ public class MecanumDriveSubsystem {
     public void manualDrive(Gamepad gamepad) {
         // --- 1. Map Controls ---
         // Axial: Left Stick Y (Up is negative, so invert)
-        double y = -gamepad.left_stick_y;
+        double y = -gamepad.left_stick_x;
 
         // Lateral: Triggers (Right = Right, Left = Left)
-        double strafeRight = gamepad.right_trigger;
-        double strafeLeft = gamepad.left_trigger;
+        double strafeRight = gamepad.left_trigger;
+        double strafeLeft = gamepad.right_trigger;
         double x = strafeRight - strafeLeft;
 
         // Yaw: Right Stick X
-        double rx = gamepad.right_stick_x;
+        double rx = gamepad.right_stick_y;
 
         // --- 2. Calculate Kinematics (MecanumPIDDrive Logic) ---
         double fl = y + x + rx;
