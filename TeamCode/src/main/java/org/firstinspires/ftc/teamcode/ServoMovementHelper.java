@@ -30,11 +30,18 @@ public class ServoMovementHelper {
      * @param servo The continuous rotation servo to control
      * @param msPerDegree Milliseconds per degree of rotation at full power
      */
+
+
     public ServoMovementHelper(CRServo servo, double msPerDegree) {
         this.servo = servo;
         this.msPerDegree = msPerDegree;
         this.currentDegrees = 0.0;
         servo.setPower(0);
+    }
+
+
+    public CRServo getServo() {
+        return servo;
     }
 
     /**
