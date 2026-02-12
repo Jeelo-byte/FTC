@@ -2,8 +2,9 @@ package org.firstinspires.ftc.teamcode;
 
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 
-@com.qualcomm.robotcore.eventloop.opmode.TeleOp(name = "Potential Semi-Auto", group = "Modular")
+@com.qualcomm.robotcore.eventloop.opmode.TeleOp(name = "Working Semi-Auto", group = "Modular")
 public class TeleOp extends LinearOpMode {
+    private static final boolean ENABLE_INTAKE_TELEOP = false;
 
     // Subsystems
     private MecanumDriveSubsystem drive;
@@ -30,7 +31,7 @@ public class TeleOp extends LinearOpMode {
     public void runOpMode() {
 
         drive = new MecanumDriveSubsystem(hardwareMap);
-        spindexer = new SpindexerSubsystem(hardwareMap);
+        spindexer = new SpindexerSubsystem(hardwareMap, ENABLE_INTAKE_TELEOP);
         shooterLift = new ShooterLiftSubsystem(hardwareMap);
 
         telemetry.addData("Status", "Ready - Potential Semi-Auto");
@@ -49,7 +50,9 @@ public class TeleOp extends LinearOpMode {
             // --- Auto Intake Toggle (Circle) ---
             // Press once: ON. Press again: OFF. Auto-OFF when 3 balls loaded.
             if (gamepad1.circle && !lastCircle) {
-                spindexer.toggleAutoIntake();
+                if (ENABLE_INTAKE_TELEOP) {
+                    spindexer.toggleAutoIntake();
+                }
             }
             lastCircle = gamepad1.circle;
 
@@ -111,17 +114,18 @@ public class TeleOp extends LinearOpMode {
 
             // --- Calibration: Shoot Angle Offset (Bumpers) ---
             if (gamepad1.left_bumper && !lastLeftBumper) {
-                spindexer.moveSpindexer(-5.0,driveAction,opModeIsActive());
+                spindexer.moveSpindexer(-60.0,driveAction,opModeIsActive());
             }
             lastLeftBumper = gamepad1.left_bumper;
 
             if (gamepad1.right_bumper && !lastRightBumper) {
-                spindexer.moveSpindexer(5,driveAction,opModeIsActive());
+                spindexer.moveSpindexer(120,driveAction,opModeIsActive());
             }
             lastRightBumper = gamepad1.right_bumper;
 
             // --- Telemetry (Shooter/Lift) ---
             telemetry.addData("Shooter", shooterLift.isShooterOn() ? "ON" : "OFF");
+            telemetry.addData("Intake Enabled", ENABLE_INTAKE_TELEOP);
             telemetry.addData("Velocity", "%.0f / %.0f", shooterLift.getVelocity(), shooterLift.getTargetVelocity());
             telemetry.addData("PIDF", "P:%.1f F:%.1f", shooterLift.getP(), shooterLift.getF());
             telemetry.addData("Lift", shooterLift.isLiftUp() ? "UP" : "DOWN");
@@ -132,7 +136,9 @@ public class TeleOp extends LinearOpMode {
             telemetry.addData("Cur Degrees", "%.1f", shooterLift.getCurrentDegrees());
 
             // --- REQUIRED: run auto-intake state machine every loop (non-blocking) ---
-            spindexer.updateAutoIntake(telemetry, driveAction, opModeIsActive());
+            if (ENABLE_INTAKE_TELEOP) {
+                spindexer.updateAutoIntake(telemetry, driveAction, opModeIsActive());
+            }
 
             telemetry.update();
         }

@@ -8,8 +8,9 @@ import org.firstinspires.ftc.vision.apriltag.AprilTagProcessor;
 
 import java.util.List;
 
-@com.qualcomm.robotcore.eventloop.opmode.TeleOp(name = "Potential Semi-Auto W/ Cam", group = "Modular")
+@com.qualcomm.robotcore.eventloop.opmode.TeleOp(name = "Working Semi-Auto W/ Cam", group = "Modular")
 public class TeleOpCam extends LinearOpMode {
+    private static final boolean ENABLE_INTAKE_TELEOP = false;
 
     // Subsystems
     private MecanumDriveSubsystem drive;
@@ -42,7 +43,7 @@ public class TeleOpCam extends LinearOpMode {
     public void runOpMode() {
 
         drive = new MecanumDriveSubsystem(hardwareMap);
-        spindexer = new SpindexerSubsystem(hardwareMap);
+        spindexer = new SpindexerSubsystem(hardwareMap, ENABLE_INTAKE_TELEOP);
         shooterLift = new ShooterLiftSubsystem(hardwareMap);
 
         // --- Initialize Vision (AprilTag) ---
@@ -113,7 +114,9 @@ public class TeleOpCam extends LinearOpMode {
 
             // --- Auto Intake Toggle (Circle) ---
             if (gamepad1.circle && !lastCircle) {
-                spindexer.toggleAutoIntake();
+                if (ENABLE_INTAKE_TELEOP) {
+                    spindexer.toggleAutoIntake();
+                }
             }
             lastCircle = gamepad1.circle;
 
@@ -174,17 +177,18 @@ public class TeleOpCam extends LinearOpMode {
 
             // --- Calibration: Shoot Angle Offset (Bumpers) ---
             if (gamepad1.left_bumper && !lastLeftBumper) {
-                shooterLift.adjustInitialShootAngleOffset(-0.5);
+                spindexer.moveSpindexer(-60.0, driveAction, opModeIsActive());
             }
             lastLeftBumper = gamepad1.left_bumper;
 
             if (gamepad1.right_bumper && !lastRightBumper) {
-                shooterLift.adjustInitialShootAngleOffset(0.5);
+                spindexer.moveSpindexer(120.0, driveAction, opModeIsActive());
             }
             lastRightBumper = gamepad1.right_bumper;
 
             // --- Telemetry (Shooter/Lift/Vision) ---
             telemetry.addData("Pattern", patternValue);
+            telemetry.addData("Intake Enabled", ENABLE_INTAKE_TELEOP);
             telemetry.addData("Shooter", shooterLift.isShooterOn() ? "ON" : "OFF");
             telemetry.addData("Velocity", "%.0f / %.0f", shooterLift.getVelocity(), shooterLift.getTargetVelocity());
             telemetry.addData("PIDF", "P:%.1f F:%.1f", shooterLift.getP(), shooterLift.getF());
@@ -196,7 +200,9 @@ public class TeleOpCam extends LinearOpMode {
             telemetry.addData("Cur Degrees", "%.1f", shooterLift.getCurrentDegrees());
 
             // --- REQUIRED: run auto-intake state machine every loop ---
-            spindexer.updateAutoIntake(telemetry, driveAction, opModeIsActive());
+            if (ENABLE_INTAKE_TELEOP) {
+                spindexer.updateAutoIntake(telemetry, driveAction, opModeIsActive());
+            }
 
             telemetry.update();
         }
