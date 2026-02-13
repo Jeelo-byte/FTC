@@ -30,7 +30,7 @@ public class SpindexerDecode extends LinearOpMode {
     static final double GEAR_RATIO = 20.0 / 15.0;
     static final double MAX_SPEED = 0.55;
     static final double PID_kP = 0.006;
-    static final double MIN_POWER = 0.23;
+    static final double MIN_POWER = 0.2;
     static final double TOLERANCE_TICKS = 2;
 
     // --- DRIVE CONSTANTS ---
